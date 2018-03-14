@@ -1,0 +1,225 @@
+---
+title: "Preprocessing"
+author: "Jessy Min"
+date: "2018년 3월 5일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Setting
+
+
+```{r Import library}
+library(rvest)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+```
+
+
+## 2. Scrap Data
+
+데이터는 Sur La Table 웹사이트에서 수집했으며, 카테고리별 URL은 하드코딩하였다. 
+
+```{r Set scrapping URL}
+base_url1 <- "https://www.surlatable.com/category/TCA-"
+base_url2 <- "&No=0&Nrpp=200&pCat=CAT-351560"
+category_list <- c("257800/Blenders?N=17841", 
+                   "257802/Food+Processors?N=17842", 
+                   "333580/Hand+Mixers?N=17843",
+                   "333582/Immersion+Blenders?N=17844", 
+                   "257820/Toasters+&+Ovens?N=17847", 
+                   "257818/Multi+Cookers+&+Slow+Cookers?N=17857", 
+                   "258207/Coffee+Makers?N=18011", 
+                   "258225/Espresso+Machines?N=18012")
+
+```
+
+
+수집한 데이터에서 Item name의 첫머리에 포함된 브랜드 이름을 추출했다. 
+
+```{r Scrap data}
+# Scrap data from website
+df <- data.frame()
+
+for (i in 1:length(category_list)) {
+        category <- category_list[i]
+        raw_data <- read_html(paste0(base_url1, category, base_url2))
+        
+        # Get Item name
+        name <- html_nodes(raw_data, css='.name') %>% html_text() %>%
+                str_split(" ", 2)
+        
+        # Extract Brand name
+        brand = lapply(name, function(x) {x[c(1)]}) %>% unlist() 
+        category_data <- data.frame("brand" = brand)
+        
+        # Extract Product name
+        product_name <- lapply(name, function(x) {x[c(2)]}) %>% unlist()
+        category_data$product_name <- product_name
+        
+        # Extract Price
+        price <- html_nodes(raw_data, css='.product-display-price') %>% html_text()
+        price <- substring(price, 2)
+        category_data$price <- price
+        
+        # Set Category
+        category_data$category <- category
+        
+       # Merge dataframe 
+        df <- rbind(df, category_data)
+}
+
+rm(base_url1, base_url2, category, category_list, category_data, i, name, brand, price, product_name)
+```
+
+
+## 3. Cleaning Data 
+ * Category : 스크래핑에 쓰인 url로부터 제품 카테고리 추출
+ * Price : 세일 중인 제품의 경우 범위로 제시되어, 최저가만 추출함
+ * Brand : 브랜드명+제품명 공식에 맞지 않아 잘못 추출된 경우 수정
+
+```{r Clean Data}
+# Clean Category name
+df$category <- str_sub(df$category, 8) %>%
+        str_sub(end = -9) %>%
+        str_replace_all("\\+", " ")
+
+# Clean Price
+df$price <- str_sub(df$price, end = 7) %>% #최저가 추출 
+        str_replace_all(",", "") %>% 
+        str_replace_all("-", "") 
+
+df$price <- as.numeric(df$price)
+
+# Clean Brand name
+df$brand <- df$brand %>% str_replace("®", "")
+
+unique(df$brand)
+filter(df, brand == 'the')
+df$brand[df$brand == 'the'] <- 'dualit'
+
+# Save backup data
+date <- Sys.Date()
+write.csv(df, file=paste0("df_backup_",date), row.names=F)
+ 
+```
+
+
+### 3-2. 중복되는 데이터 제거
+
+이커머스에는 동일한 제품이 여러 카테고리에 등록된 경우가 있다.
+카테고리 별로 웹스크래핑 함에 따라 중복 수집된 제품을 확인하고, 한쪽을 제거하였다.
+
+
+```{r Check overlapping item}
+length(df$product_name) - length(unique(df$product_name)) #제품 중복여부 확인
+
+df <- group_by(df, product_name) %>%
+        mutate(overlap = n()) #제품 개수 카운트
+df <- data.frame(df)
+
+df_overlap <- filter(df, overlap == 2) #중복된 제품 별도 추출
+ggplot(df_overlap, aes(category)) + 
+        geom_bar(stat="count", fill="steelblue", width=0.4) +
+        geom_text(stat="count", aes(label=..count..), vjust=-0.2, size=3.5)
+
+
+table(df_overlap$category)
+
+```
+
+중복되는 데이터는 대부분 커피메이커/에스프레소 머신 2개 카테고리에 분포하고 있다.
+제품의 특성과 높은 가격대를 고려하여, Coffee Maker 카테고리의 데이터를 삭제하였다.
+그 외 카테고리의 제품은, 브랜드별로 라인업의 범위를 파악하려는 분석 목적을 고려하여
+가급적 다양한 카테고리에 분포되도록 하드코딩하였다. 
+
+
+```{r Remove overlapping item}
+
+# 제거할 제품 리스트만 남기기
+remove_list <- filter(df_overlap, category != "Espresso Machines")
+remove_list <- remove_list[-(remove_list$category == "Food Processors"),]
+
+# 전체 데이터셋에서 제거 
+df <- setdiff(df, remove_list)
+df <- df[,-5]
+rm(df_overlap, remove_list)
+
+```
+
+
+###. 분석대상 브랜드 필터링
+
+```{r Check status}
+# 일단 현재상태 파악하기. 
+ggplot(df, aes(category, price, col=brand)) + geom_jitter(width=0.25, alpha=0.6, size=3) +
+        coord_cartesian(ylim = c(0,2700))
+length(unique(df$brand))
+
+
+```
+
+37개 브랜드의 데이터가 포함되어 있다. 분석의 효율을 위해 아래 기준으로 브랜드 개수를 축소하였다.
+
+* 카테고리별 판매제품 5개 이상일 것
+* 타 유통채널에서 ~하는 브랜드 
+  (Williams & Sonoma 웹사이트 > Electronics > Shop by Brand 메뉴 참조)
+* 유럽 시장에서 Market Share가 큰 브랜드
+
+```{r Filter data}
+brand_list = c("breville", "vitamix", "kitchenaid", "all-clad","braun", "cuisinart",
+               "de’longhi","dualit","jura","kenwood","miele","nespresso","smeg",
+               "technivorm","wolf")
+
+over_5 <- df %>% group_by(brand) %>%
+        summarise(num_product = length(product_name)) %>%
+        filter(num_product >= 5)
+
+brand_list <- union(brand_list, unlist(over_5[,1]))
+
+df$brand <- as.character(df$brand)
+df <- filter(df, brand %in% brand_list)
+
+rm(brand_list, over_5)
+
+```
+
+### 브랜드별 본사 Region 추가
+```{r}
+df <- mutate(df, region = case_when(
+                df$brand %in% c("All-Clad","Capresso","Cuisinart","KitchenAid","Omega", 
+                            "Vitamix","Wolf") ~ "US",
+                df$brand %in% c("Braun","De’Longhi","Dualit","Gaggia","JURA","Kenwood",
+                             "Krups","Miele","Nespresso","Smeg","Technivorm") ~ "Europe",
+                df$brand == "Breville" ~ "Australia"
+                )
+        )
+
+
+```
+
+
+### Variable 처리
+```{r factorize variables}
+df$brand <- as.factor(df$brand)
+df$category <- factor(df$category, 
+                         c("Blenders","Immersion Blenders","Hand Mixers",
+                           "Food Processors","Coffee Makers","Espresso Machines",
+                           "Multi Cookers & Slow Cookers","Toasters & Ovens"))
+df$region <- as.factor(df$region)
+```
+
+                                                   
+### 파일 저장
+```{r}
+date <- Sys.Date()
+write.csv(df, file=paste0("Small_Appliance_",date), row.names=F)
+```
+
+
+
+
