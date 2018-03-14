@@ -109,7 +109,7 @@ write.csv(df, file=paste0("df_backup_",date), row.names=F)
 ```
 
 
-### 3-2. 중복되는 데이터 제거
+### 중복되는 데이터 제거
 
 이커머스에는 동일한 제품이 여러 카테고리에 등록된 경우가 있다.
 카테고리 별로 웹스크래핑 함에 따라 중복 수집된 제품을 확인하고, 한쪽을 제거하였다.
@@ -152,10 +152,12 @@ rm(df_overlap, remove_list)
 ```
 
 
-###. 분석대상 브랜드 필터링
+## Filter Data
+
+### 분석대상 브랜드 필터링
 
 ```{r Check status}
-# 일단 현재상태 파악하기. 
+# 현재상태 파악 
 ggplot(df, aes(category, price, col=brand)) + geom_jitter(width=0.25, alpha=0.6, size=3) +
         coord_cartesian(ylim = c(0,2700))
 length(unique(df$brand))
@@ -188,7 +190,7 @@ rm(brand_list, over_5)
 
 ```
 
-### 브랜드별 본사 Region 추가
+### 브랜드별 본사 지역 정보 추가
 ```{r}
 df <- mutate(df, region = case_when(
                 df$brand %in% c("All-Clad","Capresso","Cuisinart","KitchenAid","Omega", 
@@ -203,7 +205,7 @@ df <- mutate(df, region = case_when(
 ```
 
 
-### Variable 처리
+### Factorize some variables
 ```{r factorize variables}
 df$brand <- as.factor(df$brand)
 df$category <- factor(df$category, 
@@ -214,7 +216,7 @@ df$region <- as.factor(df$region)
 ```
 
                                                    
-### 파일 저장
+### Save File
 ```{r}
 date <- Sys.Date()
 write.csv(df, file=paste0("Small_Appliance_",date), row.names=F)
