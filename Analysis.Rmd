@@ -1,0 +1,84 @@
+---
+title: "Analysis"
+author: "Jessy Min"
+date: "2018년 3월 15일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r read data}
+library(dplyr)
+library(ggplot2)
+
+df <- read.csv('df_backup_2018-03-15')
+```
+
+
+### 1. 카테고리별 상품 수 및 가격대
+```{r}
+ggplot(df, aes(category, price, col=brand)) + geom_jitter(width=0.25, alpha=0.6, size=3) +
+        coord_cartesian(ylim = c(0,2700))
+
+ggplot(df, aes(category, price, col=region)) + geom_jitter(width=0.25, alpha=0.6, size=3) +
+        coord_cartesian(ylim = c(0,2700))
+
+
+```
+
+### 2. 브랜드별 플레이 현황 분석
+
+#### 브랜드별
+```{r}
+
+```
+
+#### 브랜드 원산지 : 북미 로컬 브랜드 vs. 유러피언 브랜드
+
+```{r cars}
+
+
+```
+
+
+
+### 3. 주요 프리미엄 브랜드의 주력 카테고리 파악
+
+```{r}
+ggplot(filter(df, brand %in% c("kitchenaid","breville","wolf","smeg","miele")),
+              aes(category, price, col=brand)) + 
+              geom_jitter(width=0.25, alpha=0.6, size=6) + 
+              coord_cartesian(ylim = c(0,2700))
+
+```
+
+
+### 4. 브랜드 별 요약표
+```{r}
+brand_summary <- df %>% 
+        group_by(brand) %>% 
+        summarise(num_category = length(unique(category)),
+                  num_product = length(product_name),
+                  mean_price = mean(price)) 
+
+ggplot(brand_summary, aes(num_category, mean_price, label=brand)) + 
+        geom_point(size=3) +
+        geom_text(hjust=0, nudge_x=0.1, size=5)
+
+
+
+# 다시 시각화
+ggplot(brand_summary, aes(num_category, mean_price, label=brand, size=num_product, col=region)) + 
+        geom_point(alpha=0.6) +
+        geom_text(hjust=0, nudge_x=0.1, size=5) +
+        scale_x_continuous(breaks=1:10) +
+        ylim(0, 1000)
+```
+
+
+        
+#To Do.브랜드 서머리에 제품 보유한  카테고리 리스트 추가하기. 
+        
