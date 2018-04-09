@@ -99,8 +99,8 @@ df$price <- as.numeric(df$price)
 df$brand <- df$brand %>% str_replace("®", "")
 
 unique(df$brand)
-filter(df, brand == 'the')
-df$brand[df$brand == 'the'] <- 'dualit'
+filter(df, brand == 'The')
+df$brand[df$brand == 'The'] <- 'Dualit'
 
 # Save backup data
 date <- Sys.Date()
@@ -173,9 +173,9 @@ length(unique(df$brand))
 * 유럽 시장에서 Market Share가 큰 브랜드
 
 ```{r Filter data}
-brand_list = c("breville", "vitamix", "kitchenaid", "all-clad","braun", "cuisinart",
-               "de’longhi","dualit","jura","kenwood","miele","nespresso","smeg",
-               "technivorm","wolf")
+brand_list = c("Breville", "Vitamix", "Kitchenaid", "All-Clad","Braun", "Cuisinart",
+               "De’Longhi","Dualit","JURA","Kenwood","Miele","Nespresso","SMEG",
+               "Technivorm","Wolf")
 
 over_5 <- df %>% group_by(brand) %>%
         summarise(num_product = length(product_name)) %>%
