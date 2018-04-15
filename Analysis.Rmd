@@ -12,48 +12,145 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r read data}
 library(dplyr)
+library(sqldf)
 library(ggplot2)
+library(pander)
+library(kableExtra)
 
-df <- read.csv('df_backup_2018-03-15')
+df <- read.csv('Small_Appliance_2018-04-09')
+
+# 카테고리 순서 변경
+df$category <- as.character(df$category)
+df$category <- factor(df$category, c("Coffee Makers","Espresso Machines",
+                "Toasters & Ovens","Blenders","Immersion Blenders",
+                "Hand Mixers","Food Processors","Multi Cookers & Slow Cookers"))
+
+df$region <- factor(df$region, levels=rev(levels(df$region)))
 ```
 
-
+   
+   
+    
 ### 1. 카테고리별 상품 수 및 가격대
+
 ```{r}
-ggplot(df, aes(category, price, col=brand)) + geom_jitter(width=0.25, alpha=0.6, size=3) +
-        coord_cartesian(ylim = c(0,2700))
+#ggplot(df, aes(category)) + 
+#        geom_bar(stat='count', width=0.4, fill='steelblue') +
+#        geom_text(aes(label=n()), vjust=-0.2, size=3.5) +
+#        theme(axis.text.x=element_text(angle=45, hjust=1))
+```
 
-ggplot(df, aes(category, price, col=region)) + geom_jitter(width=0.25, alpha=0.6, size=3) +
-        coord_cartesian(ylim = c(0,2700))
 
+```{r}
+ggplot(df, aes(category, price)) + 
+        geom_jitter(width=0.25, alpha=0.6, size=3, col='steelblue') +
+        coord_cartesian(ylim = c(0,2700)) +
+        theme(axis.text.x=element_text(angle=45, hjust=1))
+
+
+s <- df %>% 
+        group_by(category) %>% 
+        summarise(Number_of_products = length(product_name)) %>% 
+        arrange(desc(Number_of_products))
+kable(s, format = 'html') %>%
+        kable_styling(bootstrap_options = 'striped', 
+                        full_width = 100, position='left')
 
 ```
+
+<br>
+<br>
 
 ### 2. 브랜드별 플레이 현황 분석
+<br>
 
 #### 브랜드별
 ```{r}
+ggplot(df, aes(category, price, col=brand)) + 
+        geom_jitter(width=0.25, alpha=0.6, size=3) +
+        coord_cartesian(ylim = c(0,2700)) +
+        theme(axis.text.x=element_text(angle=45, hjust=1))
 
 ```
+<br>
+<br>
 
-#### 브랜드 원산지 : 북미 로컬 브랜드 vs. 유러피언 브랜드
+#### 북미 로컬 브랜드 vs. 유러피언 브랜드 플레이 현황
 
-```{r cars}
+```{r brand_region}
 
-
+ggplot(df, aes(category, price, col=region, shape=region)) + 
+        geom_jitter(width=0.25, alpha=0.6, size=3) +
+        coord_cartesian(ylim = c(0,2700)) +
+        theme(axis.text.x=element_text(angle=45, hjust=1))
 ```
+<br>
+
+* 유러피언 브랜드가 많이 진출한 카테고리는 __에스프레소 머신__, __토스터&오븐__임 
+
+* 반면 __블렌더__, __푸드 프로세서__, __슬로우 쿠커__ 등은 북미 로컬 브랜드의 비중이 높음
+
+* __커피메이커__, __토스터&오븐__은 북미/유럽/호주 브랜드 간의 각축이 벌어지는 카테고리임  
+
+<br>
+<br>
 
 
-
-### 3. 주요 프리미엄 브랜드의 주력 카테고리 파악
+### 3. 주요 프리미엄 브랜드의 주력 카테고리
 
 ```{r}
-ggplot(filter(df, brand %in% c("kitchenaid","breville","wolf","smeg","miele")),
-              aes(category, price, col=brand)) + 
-              geom_jitter(width=0.25, alpha=0.6, size=6) + 
-              coord_cartesian(ylim = c(0,2700))
+# KitchenAid
+ggplot(df, aes(category, price)) + 
+        geom_jitter(data=filter(df, brand != 'KitchenAid'),
+                    width=0.2, alpha=0.5, size=3, col='dark grey') +
+        geom_jitter(data=filter(df, brand == 'KitchenAid'),
+                    width=0.2, alpha=0.7, size=4, col='red', shape=17) +
+        coord_cartesian(ylim = c(0,2700)) +
+        theme(axis.text.x=element_text(angle=45, hjust=1)) +
+        ggtitle("KitchenAid Product Line-up")
+
+
+
+
 
 ```
+<br>
+* 모든 카테고리 제품을 갖춘 full line-up 구축
+* 대부분 높은 가격대로 포지셔닝하고 있으나, 핸드믹서와 슬로쿠커는 미들존에 위치
+* 에스프레소 머신, 블렌더, 푸드 프로세서는 프리미엄/매스로 이원화하여 상품군 구축
+
+
+```{r}
+# Breville
+ggplot(df, aes(category, price)) + 
+        geom_jitter(data=filter(df, brand != 'Breville'),
+                    width=0.2, alpha=0.5, size=3, col='dark grey') +
+        geom_jitter(data=filter(df, brand == 'Breville'),
+                    width=0.2, alpha=0.7, size=4, col='red', shape=17) +
+        coord_cartesian(ylim = c(0,2700)) +
+        theme(axis.text.x=element_text(angle=45, hjust=1)) +
+        ggtitle("Breville Product Line-up")
+```
+
+<br>
+* KitchenAid와 마찬가지로 전 카테고리에 풀 라인업 구축
+* 특히 에스프레소 머신과 푸드 프로세서에서 높은 가격대에 다수 제품 보유
+* 
+
+
+```{r}
+# Wolf
+ggplot(df, aes(category, price)) + 
+        geom_jitter(data=filter(df, brand != 'Wolf'),
+                    width=0.2, alpha=0.5, size=3, col='dark grey') +
+        geom_jitter(data=filter(df, brand == 'Wolf'),
+                    width=0.2, alpha=0.7, size=4, col='red', shape=17) +
+        coord_cartesian(ylim = c(0,2700)) +
+        theme(axis.text.x=element_text(angle=45, hjust=1)) +
+        ggtitle("Wolf Product Line-up")
+```
+
+
 
 
 ### 4. 브랜드 별 요약표
@@ -62,23 +159,36 @@ brand_summary <- df %>%
         group_by(brand) %>% 
         summarise(num_category = length(unique(category)),
                   num_product = length(product_name),
-                  mean_price = mean(price)) 
-
-ggplot(brand_summary, aes(num_category, mean_price, label=brand)) + 
-        geom_point(size=3) +
-        geom_text(hjust=0, nudge_x=0.1, size=5)
+                  mean_price = round(mean(price), 1)
+                  ) %>%
+        arrange(desc(num_category), desc(num_product))
 
 
+category_list <- sqldf("
+        SELECT brand, GROUP_CONCAT(category) AS category_list
+        FROM (
+                SELECT brand, category
+                FROM df
+                GROUP BY brand, category
+             )
+        GROUP BY brand; ")        
+   
+brand_summary <- brand_summary %>% left_join(category_list, by = "brand")
+                       
 
-# 다시 시각화
-ggplot(brand_summary, aes(num_category, mean_price, label=brand, size=num_product, col=region)) + 
-        geom_point(alpha=0.6) +
-        geom_text(hjust=0, nudge_x=0.1, size=5) +
-        scale_x_continuous(breaks=1:10) +
-        ylim(0, 1000)
+kable(brand_summary)
+
+
+
+
+# 시각화
+ggplot(brand_summary, aes(num_category, mean_price, label=brand, size=num_product)) + 
+        geom_point(alpha=0.8, color="steelblue") +
+        geom_text(hjust=0, nudge_x=0.1, size=4, color="steelblue") +
+        scale_x_continuous(breaks=1:10)
 ```
 
 
         
-#To Do.브랜드 서머리에 제품 보유한  카테고리 리스트 추가하기. 
+To Do.브랜드 서머리에 제품 보유한  카테고리 리스트 추가하기. 
         
